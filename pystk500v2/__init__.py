@@ -6,6 +6,7 @@ PGM03A for programming AVR chips.
 import serial
 import threading
 import time
+from functools import reduce
 
 class STK500():
   MESSAGE_START                       = 0x1B        
@@ -115,9 +116,9 @@ class STK500():
 
   def sign_on(self):
     resp = self.comms.sendrecv([self.CMD_SIGN_ON], 0.2)
-    if resp[3:] == 'AVRISP_2':
+    if resp[3:].decode() == 'AVRISP_2':
       self.programmertype = 'avrisp2'
-    elif resp[3:] == 'STK500_2':
+    elif resp[3:].decode() == 'STK500_2':
       self.programmertype = 'stk500_2'
     else:
       raise Exception("Unkown programmer type: {0}".format(resp[3:]))
@@ -141,6 +142,7 @@ class STK500():
     return resp[1]
 
   def load_address(self, address):
+    address = int(address)
     addrbytes = bytearray(4)
     addrbytes[0] = (address >> 24) & 0x00ff
     addrbytes[1] = (address >> 16) & 0x00ff
@@ -241,6 +243,7 @@ class ATmega128rfa1Programmer(STK500):
   def __init__(self, serialport):
     STK500.__init__(self, serialport)
     self.progress = 0.0
+    self.serialID = None
 
   def enter_progmode_isp(
       self, 
@@ -347,7 +350,10 @@ class ATmega128rfa1Programmer(STK500):
     resp = self.spi_multi(4, [0x50, 0x08, 0x00, 0x00], 0)
     return resp[3]
 
-  def programAll(self, hexfiles=['bootloader.hex','dof.hex'], progChecksum=True):
+  def programAll(self, 
+                 hexfiles=['bootloader.hex','dof.hex'], 
+                 progChecksum=True,
+                 verify=True):
     self.sign_on()
     self.enter_progmode_isp()
     self.check_signature()
@@ -356,7 +362,8 @@ class ATmega128rfa1Programmer(STK500):
       h.fromIHexFile(f)
     self.chip_erase_isp()
     self.load_data(h)
-    self.check_data(h)
+    if verify:
+        self.check_data(h)
 
     while self.read_hfuse() != 0xd8:
       if self.read_hfuse() == 0xd8: 
@@ -390,22 +397,27 @@ class ATmega128rfa1Programmer(STK500):
              (hexlen>>24)&0x00ff,
             ]
       self.writeEEPROM(0x434, buf)
+    print('Done.')
 
-  def _tryProgramAll(self, hexfiles=['bootloader.hex', 'dof.hex']):
+  def _tryProgramAll(self, *args, **kwargs):
     self.threadException = None
     try:
-      self.programAll(hexfiles=hexfiles)
+      self.programAll(*args, **kwargs)
     except Exception as e:
       self.threadException = e
 
   def getProgress(self):
     return self.progress
 
-  def programAllAsync(self, serialID="1234"):
+  def programAllAsync(self, serialID="1234", *args, **kwargs):
     if serialID != None and len(serialID) != 4:
       raise Exception('The Serial ID must be a 4 digit alphanumeric string.')
     self.serialID=serialID
-    self.thread = threading.Thread(target=self._tryProgramAll)
+    self.thread = threading.Thread(
+        target=self._tryProgramAll,
+        args=args,
+        kwargs=kwargs
+        )
     self.thread.start()
 
   def isProgramming(self):
@@ -568,8 +580,9 @@ class ATmega32U4Programmer(STK500):
   def getProgress(self):
     return self.progress
 
-  def programAllAsync(self):
-    self.thread = threading.Thread(target=self._tryProgramAll)
+  def programAllAsync(self, *args, **kwargs):
+    self.thread = threading.Thread(target=self._tryProgramAll, args=args,
+    kwargs=kwargs)
     self.thread.start()
 
   def isProgramming(self):
@@ -759,7 +772,7 @@ class HexFile():
     address = (self.extaddr << 16) + address;
     oldlen = len(self.data)
     if address + size > oldlen:
-      pad = bytearray(['\xff' for i in range(address+size-oldlen)])
+      pad = bytearray([0xff for i in range(address+size-oldlen)])
       self.data += pad
     for i,d in zip(range(address, address+size),data):
       self.data[i] = d
