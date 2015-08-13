@@ -347,7 +347,7 @@ class ATmega128rfa1Programmer(STK500):
     resp = self.spi_multi(4, [0x50, 0x08, 0x00, 0x00], 0)
     return resp[3]
 
-  def programAll(self, hexfiles=['bootloader.hex','dof.hex']):
+  def programAll(self, hexfiles=['bootloader.hex','dof.hex'], progChecksum=True):
     self.sign_on()
     self.enter_progmode_isp()
     self.check_signature()
@@ -379,6 +379,17 @@ class ATmega128rfa1Programmer(STK500):
       self.writeEEPROM(0x412, map(ord, self.serialID))
       self.writeEEPROM(0x412, map(ord, self.serialID))
     self.writeEEPROM(0x420, [self.HWREV_MAJ, self.HWREV_MIN, self.HWREV_MIC, 0xaa])
+
+    if progChecksum:
+      crc = h.crc()
+      hexlen = len(h)
+      buf = [crc&0xff, crc>>8, 0xff, 0xff, 
+             (hexlen>>0)&0x00ff,
+             (hexlen>>8)&0x00ff,
+             (hexlen>>16)&0x00ff,
+             (hexlen>>24)&0x00ff,
+            ]
+      self.writeEEPROM(0x434, buf)
 
   def _tryProgramAll(self, hexfiles=['bootloader.hex', 'dof.hex']):
     self.threadException = None
@@ -693,6 +704,13 @@ class HexFile():
       currentAddr += blocksize
     hexstring += ':00000001FF\n'
     return hexstring
+
+  def crc(self):
+    import crc16
+    crc = 0
+    for i in range(len(self)):
+        crc = crc16.crc16xmodem(bytes([self[i]]), crc)
+    return crc
 
   def _toIHexLine(self, address, blocksize):
     # See if we have enough bytes left to fill up the block
