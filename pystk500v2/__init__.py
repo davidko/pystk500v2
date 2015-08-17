@@ -385,7 +385,7 @@ class ATmega128rfa1Programmer(STK500):
       # FIXME
       self.writeEEPROM(0x412, map(ord, self.serialID))
       self.writeEEPROM(0x412, map(ord, self.serialID))
-    self.writeEEPROM(0x420, [self.HWREV_MAJ, self.HWREV_MIN, self.HWREV_MIC, 0xaa])
+    self.writeEEPROM(0x430, [self.HWREV_MAJ, self.HWREV_MIN, self.HWREV_MIC, 0xaa])
 
     if progChecksum:
       crc = h.crc()
