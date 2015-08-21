@@ -354,12 +354,29 @@ class ATmega128rfa1Programmer(STK500):
                  hexfiles=['bootloader.hex','dof.hex'], 
                  progChecksum=True,
                  verify=True):
-    self.sign_on()
-    self.enter_progmode_isp()
-    self.check_signature()
     h = HexFile()
     for f in hexfiles:
       h.fromIHexFile(f)
+
+    '''
+    # DeBUG 
+    print(h[0x10000:0x10008])
+    if progChecksum:
+      crc = h.crc()
+      hexlen = len(h)
+      buf = [crc&0xff, crc>>8, 0xff, 0xff, 
+             (hexlen>>0)&0x00ff,
+             (hexlen>>8)&0x00ff,
+             (hexlen>>16)&0x00ff,
+             (hexlen>>24)&0x00ff,
+            ]
+      print(hex(crc))
+    sys.exit(0)
+    '''
+
+    self.sign_on()
+    self.enter_progmode_isp()
+    self.check_signature()
     self.chip_erase_isp()
     self.load_data(h)
     if verify:
@@ -385,7 +402,7 @@ class ATmega128rfa1Programmer(STK500):
       # FIXME
       self.writeEEPROM(0x412, map(ord, self.serialID))
       self.writeEEPROM(0x412, map(ord, self.serialID))
-    self.writeEEPROM(0x420, [self.HWREV_MAJ, self.HWREV_MIN, self.HWREV_MIC, 0xaa])
+    self.writeEEPROM(0x430, [self.HWREV_MAJ, self.HWREV_MIN, self.HWREV_MIC, 0xaa])
 
     if progChecksum:
       crc = h.crc()
@@ -396,7 +413,7 @@ class ATmega128rfa1Programmer(STK500):
              (hexlen>>16)&0x00ff,
              (hexlen>>24)&0x00ff,
             ]
-      self.writeEEPROM(0x434, buf)
+      self.writeEEPROM(0x444, buf)
     print('Done.')
 
   def _tryProgramAll(self, *args, **kwargs):
@@ -763,19 +780,20 @@ class HexFile():
     # Check the checksum
     self._checksum(string)
     if memtype == 4:
-      self.extaddr = data[0]<<8 | data[1]
+      self.extaddr += data[0]<<24 | data[1]<<16
+      return
     elif memtype == 2:
-      self.extaddr = data[0] >> 4
-      offset += data[1] << 4
-      offset += (data[0] & 0x00ff) << 12
-    # See if the address is out of range of our current size. If so, pad with 0xFF
-    address = (self.extaddr << 16) + address;
-    oldlen = len(self.data)
-    if address + size > oldlen:
-      pad = bytearray([0xff for i in range(address+size-oldlen)])
-      self.data += pad
-    for i,d in zip(range(address, address+size),data):
-      self.data[i] = d
+      self.extaddr += (data[0]<<8 + data[1])*16
+      return
+    elif memtype == 0:
+        # See if the address is out of range of our current size. If so, pad with 0xFF
+        address = (self.extaddr) + address;
+        oldlen = len(self.data)
+        if address + size > oldlen:
+          pad = bytearray([0xff for i in range(address+size-oldlen)])
+          self.data += pad
+        for i,d in zip(range(address, address+size),data):
+          self.data[i] = d
 
   def _checksum(self, string):
     mysum = 0

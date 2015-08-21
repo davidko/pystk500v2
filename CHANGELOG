@@ -1,0 +1,5 @@
+v2.2.2
+======
+
+- Fixed bug that caused a few bytes of corruption programming in extended
+  memory addresses
