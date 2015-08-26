@@ -358,6 +358,8 @@ class ATmega128rfa1Programmer(STK500):
     for f in hexfiles:
       h.fromIHexFile(f)
 
+    crc = h.crc()
+    hexlen = len(h)
     '''
     # DeBUG 
     print(h[0x10000:0x10008])
@@ -405,8 +407,6 @@ class ATmega128rfa1Programmer(STK500):
     self.writeEEPROM(0x430, [self.HWREV_MAJ, self.HWREV_MIN, self.HWREV_MIC, 0xaa])
 
     if progChecksum:
-      crc = h.crc()
-      hexlen = len(h)
       buf = [crc&0xff, crc>>8, 0xff, 0xff, 
              (hexlen>>0)&0x00ff,
              (hexlen>>8)&0x00ff,
