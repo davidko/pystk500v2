@@ -618,7 +618,7 @@ class ATmega32U4Programmer(STK500):
       time.sleep(0.02)
 
 class ATmega16U4Programmer(ATmega32U4Programmer):
-    def __init__(self, *args, **kwargs):
+  def __init__(self, *args, **kwargs):
         ATmega32U4Programmer.__init__(self, *args, **kwargs)
 
   def check_signature(self):
