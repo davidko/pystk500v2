@@ -617,6 +617,18 @@ class ATmega32U4Programmer(STK500):
       self.writeEEPROMbyte(startaddress+offset, byte)
       time.sleep(0.02)
 
+class ATmega16U4Programmer(ATmega32U4Programmer):
+    def __init__(self, *args, **kwargs):
+        ATmega32U4Programmer.__init__(self, *args, **kwargs)
+
+  def check_signature(self):
+    sig = 0
+    for i in range(0, 3):
+      sig |= self.get_signature_byte(i) << ((2-i)*8)
+    #print "{:06X}".format(sig)
+    if sig != 0x1e9488:
+      raise IOError("Wrong signature. Expected {:06X}, got {:06X}".format(0x1e9488, sig))
+
 class _CommsEngine():
   def __init__(self, ser): 
     self.ser = ser
