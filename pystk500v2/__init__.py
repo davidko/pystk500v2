@@ -907,7 +907,7 @@ class ATmegaXXU4Programmer(ATmega32U4Programmer):
         for i in range(0, 3):
             sig |= self.get_signature_byte(i) << ((2-i)*8)
         #print "{:06X}".format(sig)
-        if (sig != 0x1e9488) and (sig != 0x1e9587):
+        if sig not in [0x1e9488, 0x1e9587, 0x1e9389]:
             raise IOError("Wrong signature. Expected {:06X} or {:06X}, got {:06X}"
                     .format(0x1e9488, 0x1e9587, sig))
 
