@@ -579,7 +579,7 @@ class ATmega128rfa1Programmer(Stk500v2):
                 self.load_address(currentByteAddr)
                 self.load_page(data[currentByteAddr:currentByteAddr+blocksize])
             currentByteAddr += blocksize
-            self.progress = (float(currentByteAddr)/size) * 0.5
+            self.progress = (float(currentByteAddr)/size) * 0.495
 
     def check_data(self, hexdata, blocksize = 0x0100):
         size = len(hexdata)
@@ -590,7 +590,7 @@ class ATmega128rfa1Programmer(Stk500v2):
                 self.mydata += bytearray(self.read_flash_isp(blocksize))
             else:
                 self.mydata += bytearray(self.read_flash_isp(size-len(self.mydata)))
-            self.progress = (float(len(self.mydata))/size)*0.5 + 0.5
+            self.progress = (float(len(self.mydata))/size)*0.5 + 0.49
         if self.mydata != bytearray(hexdata):
             """
             for i in range(0, len(hexdata)):
@@ -683,6 +683,7 @@ class ATmega128rfa1Programmer(Stk500v2):
                    (hexlen>>24)&0x00ff,
                   ]
             self.writeEEPROM(0x444, buf)
+        self.progress = 1
         print('Done.')
 
     def _tryProgramAll(self, *args, **kwargs):
@@ -713,13 +714,14 @@ class ATmega128rfa1Programmer(Stk500v2):
         return self.threadException
 
     def writeEEPROMbyte(self, address, byte):
-        while 1:
+        for _ in range(20):
             msg = bytearray([0xc0, (address >> 8)&0x000f, address&0x00ff, byte])
             self.spi_multi(4, msg, 0)
             time.sleep(0.1)
             newbyte = self.readEEPROMbyte(address)
             if int(msg[3]) == int(newbyte):
-                break
+                return
+        raise Exception("Failed to program EEPROM Byte.")
 
     def writeEEPROM(self, startaddress, bytes):
         time.sleep(0.12)
@@ -813,7 +815,7 @@ class ATmega32U4Programmer(Stk500v2):
                 self.mydata += bytearray(self.read_flash_isp(blocksize))
             else:
                 self.mydata += bytearray(self.read_flash_isp(size-len(self.mydata)))
-            self.progress = (float(len(self.mydata))/size)*0.5 + 0.5
+            self.progress = (float(len(self.mydata))/size)*0.5 + 0.49
         if self.mydata != bytearray(hexdata):
             """
             for i in range(0, len(hexdata)):
@@ -855,6 +857,7 @@ class ATmega32U4Programmer(Stk500v2):
         self.check_data(h)
         self.write_hfuse()
         self.write_lfuse()
+        self.progress = 1
 
     def _tryProgramAll(self, hexfiles=['usb.hex']):
         self.threadException = None
